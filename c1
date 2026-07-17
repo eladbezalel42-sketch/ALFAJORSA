@@ -1,0 +1,631 @@
+set -euo pipefail
+
+echo "🥮 יוצר את אפליקציית ALFAJORSA..."
+
+# יצירת פרויקט Expo אם הריפו עדיין ריק
+if [ ! -f package.json ]; then
+  TEMP_DIR="$(mktemp -d)"
+
+  npx --yes create-expo-app@latest "$TEMP_DIR/alfajorsa" \
+    --template blank-typescript
+
+  rm -rf "$TEMP_DIR/alfajorsa/.git"
+  cp -a "$TEMP_DIR/alfajorsa/." .
+  rm -rf "$TEMP_DIR"
+fi
+
+# הגדרות בסיסיות
+npm pkg set name="alfajorsa-app"
+npm pkg set private=true
+npm pkg set scripts.typecheck="tsc --noEmit"
+
+# יצירת מסך האפליקציה
+cat > App.tsx <<'APPFILE'
+import React, { useMemo, useState } from 'react';
+import {
+  Alert,
+  Linking,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+type Flavor = {
+  id: string;
+  name: string;
+  spanishName: string;
+  description: string;
+  price: number;
+  accent: string;
+};
+
+const WHATSAPP_NUMBER = '972500000000';
+// החלף במספר שלך ללא +, רווחים או מקפים.
+// לדוגמה: 972501234567
+
+const flavors: Flavor[] = [
+  {
+    id: 'classic',
+    name: 'קלאסי שוקולד',
+    spanishName: 'Clásico',
+    description: 'ריבת חלב ארגנטינאית וציפוי שוקולד עשיר.',
+    price: 16,
+    accent: '#6B3527',
+  },
+  {
+    id: 'white',
+    name: 'שוקולד לבן',
+    spanishName: 'Chocolate Blanco',
+    description: 'ריבת חלב וציפוי שוקולד לבן עדין.',
+    price: 16,
+    accent: '#C8A96B',
+  },
+  {
+    id: 'pistachio',
+    name: 'פיסטוק',
+    spanishName: 'Pistacho',
+    description: 'קרם פיסטוק, ריבת חלב ושוקולד איכותי.',
+    price: 18,
+    accent: '#65704A',
+  },
+  {
+    id: 'coffee',
+    name: 'קפה אספרסו',
+    spanishName: 'Café Espresso',
+    description: 'ריבת חלב עם טעמי קפה עמוקים.',
+    price: 17,
+    accent: '#493126',
+  },
+  {
+    id: 'lemon',
+    name: 'לימון',
+    spanishName: 'Limón',
+    description: 'קרם לימון רענן עם מתיקות מאוזנת.',
+    price: 17,
+    accent: '#A58A35',
+  },
+  {
+    id: 'berries',
+    name: 'פירות יער',
+    spanishName: 'Frutos Rojos',
+    description: 'מילוי פירות יער וריבת חלב קטיפתית.',
+    price: 18,
+    accent: '#7A3444',
+  },
+  {
+    id: 'coconut',
+    name: 'קוקוס',
+    spanishName: 'Coco',
+    description: 'קוקוס עדין, ריבת חלב ושוקולד לבן.',
+    price: 17,
+    accent: '#9B8568',
+  },
+  {
+    id: 'dark',
+    name: 'שוקולד מריר',
+    spanishName: 'Chocolate Intenso',
+    description: 'קקאו עמוק וציפוי שוקולד מריר.',
+    price: 18,
+    accent: '#2F2926',
+  },
+];
+
+export default function App() {
+  const [cart, setCart] = useState<Record<string, number>>({});
+
+  const totalItems = useMemo(
+    () => Object.values(cart).reduce((sum, amount) => sum + amount, 0),
+    [cart],
+  );
+
+  const totalPrice = useMemo(
+    () =>
+      flavors.reduce(
+        (sum, flavor) => sum + (cart[flavor.id] ?? 0) * flavor.price,
+        0,
+      ),
+    [cart],
+  );
+
+  const addToCart = (id: string) => {
+    setCart((current) => ({
+      ...current,
+      [id]: (current[id] ?? 0) + 1,
+    }));
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart((current) => {
+      const nextAmount = Math.max((current[id] ?? 0) - 1, 0);
+
+      return {
+        ...current,
+        [id]: nextAmount,
+      };
+    });
+  };
+
+  const sendWhatsAppOrder = async () => {
+    if (totalItems === 0) {
+      Alert.alert('הסל ריק', 'יש להוסיף לפחות אלפחור אחד להזמנה.');
+      return;
+    }
+
+    const orderLines = flavors
+      .filter((flavor) => (cart[flavor.id] ?? 0) > 0)
+      .map(
+        (flavor) =>
+          `• ${flavor.name}: ${cart[flavor.id]} יחידות – ₪${
+            flavor.price * cart[flavor.id]
+          }`,
+      )
+      .join('\n');
+
+    const message = [
+      'שלום ALFAJORSA 👋',
+      'אשמח לבצע הזמנה:',
+      '',
+      orderLines,
+      '',
+      `סה״כ פריטים: ${totalItems}`,
+      `סה״כ לתשלום: ₪${totalPrice}`,
+      '',
+      'שם:',
+      'כתובת:',
+      'טלפון:',
+    ].join('\n');
+
+    const url =
+      `https://wa.me/${WHATSAPP_NUMBER}` +
+      `?text=${encodeURIComponent(message)}`;
+
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert(
+        'לא ניתן לפתוח WhatsApp',
+        'יש לבדוק שמספר ה־WhatsApp בקוד תקין.',
+      );
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F6F0E4" />
+
+      <ScrollView
+        contentContainerStyle={styles.page}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.hero}>
+          <View style={styles.monogram}>
+            <Text style={styles.monogramText}>Af.</Text>
+          </View>
+
+          <Text style={styles.brand}>ALFAJORSA</Text>
+          <Text style={styles.subtitle}>טעם ארגנטינאי אמיתי בישראל</Text>
+
+          <View style={styles.goldLine} />
+
+          <Text style={styles.intro}>
+            אלפחורס בעבודת יד, עם ריבת חלב עשירה, חומרי גלם איכותיים
+            וטעמים בהשראת ארגנטינה.
+          </Text>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>שמונת הטעמים שלנו</Text>
+          <Text style={styles.sectionCaption}>
+            בחרו טעמים והוסיפו להזמנה
+          </Text>
+        </View>
+
+        <View style={styles.grid}>
+          {flavors.map((flavor) => {
+            const amount = cart[flavor.id] ?? 0;
+
+            return (
+              <View key={flavor.id} style={styles.card}>
+                <View
+                  style={[
+                    styles.flavorStripe,
+                    { backgroundColor: flavor.accent },
+                  ]}
+                />
+
+                <Text style={styles.flavorSpanish}>
+                  {flavor.spanishName}
+                </Text>
+
+                <Text style={styles.flavorName}>{flavor.name}</Text>
+                <Text style={styles.description}>
+                  {flavor.description}
+                </Text>
+
+                <View style={styles.cardBottom}>
+                  <Text style={styles.price}>₪{flavor.price}</Text>
+
+                  {amount === 0 ? (
+                    <TouchableOpacity
+                      style={styles.addButton}
+                      activeOpacity={0.8}
+                      onPress={() => addToCart(flavor.id)}
+                    >
+                      <Text style={styles.addButtonText}>הוספה</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.quantity}>
+                      <TouchableOpacity
+                        style={styles.quantityButton}
+                        onPress={() => removeFromCart(flavor.id)}
+                      >
+                        <Text style={styles.quantityButtonText}>−</Text>
+                      </TouchableOpacity>
+
+                      <Text style={styles.quantityText}>{amount}</Text>
+
+                      <TouchableOpacity
+                        style={styles.quantityButton}
+                        onPress={() => addToCart(flavor.id)}
+                      >
+                        <Text style={styles.quantityButtonText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.cart}>
+          <View style={styles.cartDetails}>
+            <Text style={styles.cartTitle}>ההזמנה שלי</Text>
+            <Text style={styles.cartSummary}>
+              {totalItems} פריטים · ₪{totalPrice}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.orderButton,
+              totalItems === 0 && styles.orderButtonDisabled,
+            ]}
+            activeOpacity={0.85}
+            onPress={sendWhatsAppOrder}
+          >
+            <Text style={styles.orderButtonText}>
+              שליחת הזמנה ב־WhatsApp
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.footer}>
+          ALFAJORSA · Alfajores Premium
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F6F0E4',
+  },
+  page: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 48,
+  },
+  hero: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFDF8',
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: '#E4D4B4',
+  },
+  monogram: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEE2CB',
+    borderWidth: 1,
+    borderColor: '#B8985D',
+    marginBottom: 14,
+  },
+  monogramText: {
+    color: '#493126',
+    fontSize: 31,
+    fontWeight: '700',
+    fontStyle: 'italic',
+  },
+  brand: {
+    color: '#352720',
+    fontSize: 31,
+    fontWeight: '900',
+    letterSpacing: 4,
+  },
+  subtitle: {
+    marginTop: 8,
+    color: '#806B4E',
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  goldLine: {
+    width: 56,
+    height: 2,
+    backgroundColor: '#B8985D',
+    marginVertical: 17,
+  },
+  intro: {
+    color: '#594C41',
+    fontSize: 15,
+    lineHeight: 23,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  sectionHeader: {
+    marginTop: 30,
+    marginBottom: 15,
+    alignItems: 'flex-end',
+  },
+  sectionTitle: {
+    color: '#352720',
+    fontSize: 23,
+    fontWeight: '900',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  sectionCaption: {
+    color: '#867563',
+    fontSize: 14,
+    marginTop: 5,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  card: {
+    width: '48.3%',
+    minHeight: 246,
+    overflow: 'hidden',
+    backgroundColor: '#FFFDF9',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E6DCCB',
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  flavorStripe: {
+    height: 9,
+    marginHorizontal: -14,
+    marginBottom: 15,
+  },
+  flavorSpanish: {
+    color: '#A1855A',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    textAlign: 'right',
+  },
+  flavorName: {
+    marginTop: 5,
+    color: '#332721',
+    fontSize: 17,
+    fontWeight: '900',
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  description: {
+    flex: 1,
+    marginTop: 9,
+    color: '#6C6056',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'right',
+    writingDirection: 'rtl',
+  },
+  cardBottom: {
+    marginTop: 14,
+  },
+  price: {
+    color: '#493126',
+    fontSize: 19,
+    fontWeight: '900',
+    marginBottom: 10,
+    textAlign: 'right',
+  },
+  addButton: {
+    minHeight: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#493126',
+  },
+  addButtonText: {
+    color: '#FFF9ED',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  quantity: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    backgroundColor: '#F1E8D8',
+    paddingHorizontal: 5,
+  },
+  quantityButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9,
+    backgroundColor: '#493126',
+  },
+  quantityButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  quantityText: {
+    color: '#352720',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  cart: {
+    marginTop: 16,
+    padding: 20,
+    backgroundColor: '#352720',
+    borderRadius: 24,
+  },
+  cartDetails: {
+    marginBottom: 16,
+    alignItems: 'flex-end',
+  },
+  cartTitle: {
+    color: '#FFF7E7',
+    fontSize: 21,
+    fontWeight: '900',
+    writingDirection: 'rtl',
+  },
+  cartSummary: {
+    color: '#D5BE95',
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 5,
+    writingDirection: 'rtl',
+  },
+  orderButton: {
+    minHeight: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: '#C7A56B',
+    paddingHorizontal: 14,
+  },
+  orderButtonDisabled: {
+    opacity: 0.55,
+  },
+  orderButtonText: {
+    color: '#2F241E',
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  footer: {
+    marginTop: 28,
+    color: '#9B8972',
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textAlign: 'center',
+  },
+});
+APPFILE
+
+# הגדרות שם האפליקציה עבור Android ו-iPhone
+cat > app.json <<'APPJSON'
+{
+  "expo": {
+    "name": "ALFAJORSA",
+    "slug": "alfajorsa",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.alfajorsa.app"
+    },
+    "android": {
+      "package": "com.alfajorsa.app"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
+APPJSON
+
+# בדיקת קוד אוטומטית בכל push ל-GitHub
+mkdir -p .github/workflows
+
+cat > .github/workflows/ci.yml <<'WORKFLOW'
+name: ALFAJORSA CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run typecheck
+WORKFLOW
+
+# הוראות הפעלה
+cat > README.md <<'README'
+# ALFAJORSA App
+
+אפליקציית ההזמנות הראשונית של ALFAJORSA.
+
+## מה קיים בגרסה הראשונה
+
+- עיצוב קרם–זהב בהתאם למיתוג
+- מונוגרמת Af.
+- קטלוג של שמונה טעמים
+- הוספה והסרה מהסל
+- חישוב מחיר אוטומטי
+- שליחת הזמנה מוכנה ל־WhatsApp
+- תמיכה ב־Android, iPhone ו־Web
+- בדיקת TypeScript אוטומטית ב־GitHub Actions
+
+## שינוי מספר ה־WhatsApp
+
+פתחו את הקובץ:
+
+`App.tsx`
+
+וחפשו:
+
+```ts
+const WHATSAPP_NUMBER = '972500000000';
