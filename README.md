@@ -1,36 +1,44 @@
-# ALFAJORSA
-echo "=== תיקיית הפרויקט ==="
-pwd
+# ALFAJORSA Mobile App
 
-echo ""
-echo "=== מצב Git ==="
-git status --short --branch
+אפליקציית הזמנות ראשונית של ALFAJORSA עבור Android, iPhone ו-Web.
 
-echo ""
-echo "=== גרסאות Node ו-NPM ==="
-node --version
-npm --version
+## מה כלול
 
-echo ""
-echo "=== גרסת Expo בפרויקט ==="
-node -p "require('./package.json').dependencies?.expo || 'Expo not found'"
+- מיתוג קרם–זהב ומונוגרמת Af.
+- שמונה טעמי פיילוט.
+- הזמנת יחידים ומארזי 6/12 בהרכבה אישית.
+- סל, כמויות וחישוב מחיר משוער.
+- יצירת הודעת הזמנה מסודרת ל-WhatsApp.
+- TypeScript במצב strict.
+- GitHub Action שמייצר APK להתקנה ישירה, ללא Google Play.
+- פרופיל EAS מסוג preview ל-APK עתידי.
 
-echo ""
-echo "=== גרסת EAS CLI ==="
-npx --yes eas-cli@latest --version
+## הפעלה מקומית
 
-echo ""
-echo "=== חשבון Expo מחובר ==="
-npx --yes eas-cli@latest whoami || true
+```bash
+npm install
+npm start
+```
 
-echo ""
-echo "=== פרטי פרויקט EAS ==="
-npx --yes eas-cli@latest project:info || true
+בדיקה בדפדפן:
 
-echo ""
-echo "=== app.json ==="
-sed -n '1,200p' app.json 2>/dev/null || echo "app.json לא נמצא"
+```bash
+npm run web
+```
 
-echo ""
-echo "=== eas.json ==="
-sed -n '1,200p' eas.json 2>/dev/null || echo "eas.json לא נמצא"
+## יצירת APK דרך GitHub
+
+1. פתחו Actions.
+2. בחרו Build Android APK.
+3. לחצו Run workflow.
+4. בסיום הורידו את artifact בשם `ALFAJORSA-Android-v0.2.0-debug`.
+
+ה-APK נבנה גם אוטומטית בכל שינוי בקובצי האפליקציה בענף main או agent/**.
+
+## נתונים שדורשים אימות לפני השקה מסחרית
+
+- מחירי המכירה.
+- רשימת הטעמים הסופית.
+- זמינות ומשלוחים.
+- תמונות מוצר אמיתיות.
+- מדיניות פרטיות ותנאי שימוש.

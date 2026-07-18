@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "ALFAJORSA",
+    "slug": "alfajorsa",
+    "version": "0.2.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.alfajorsa.app",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.alfajorsa.app",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
